@@ -1,12 +1,16 @@
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
-import { ActionMeta, Button, Field, HorizontalGroup, Input, Select, VerticalGroup } from '@grafana/ui';
+import { ActionMeta, Button, Field, HorizontalGroup, Input, Select, VerticalGroup, RadioButtonGroup } from '@grafana/ui';
 import { DataSource } from 'DataSource';
 import React, { useState } from 'react';
 import { GADataSourceOptions, GADimensionFilterType, GAFilterExpression, GAFilterExpressionList, GAInListFilter, GAQuery, GAStringFilter, GAStringFilterMatchType } from 'types';
 
 type Props = QueryEditorProps<DataSource, GAQuery, GADataSourceOptions>;
+type OperatorType = 'orGroup' | 'andGroup';
 
 export const DimensionFilter = ({ props }: { props: Props }) => {
+  const [operatorType, setOperatorType] = useState<OperatorType>(
+    props.query.dimensionFilter?.andGroup !== undefined ? 'andGroup' : 'orGroup'
+  );
   const [dimensionFilter, setDimensionFilter] = useState(props.query.dimensionFilter)
   // const filterAction = ["dimensionChanged", "metricChanged", "filterTypeChanged", "filterOperationChanged"] as Array<string>
 
@@ -40,14 +44,14 @@ export const DimensionFilter = ({ props }: { props: Props }) => {
       }
     } as GAFilterExpression
 
-    if (dimensionFilter.orGroup === undefined) {
-      let orGroup = {
+    if (dimensionFilter[operatorType] === undefined) {
+      let operatorGroup = {
         expressions: []
       } as GAFilterExpressionList
-      dimensionFilter.orGroup = orGroup
+      dimensionFilter[operatorType] = operatorGroup
     }
 
-    dimensionFilter.orGroup.expressions.push(
+    dimensionFilter[operatorType]!.expressions.push(
       filter
     )
     setDimensionFilter(dimensionFilter)
@@ -57,8 +61,8 @@ export const DimensionFilter = ({ props }: { props: Props }) => {
   const removeFields = (index: number) => {
     const { query, onChange } = props;
 
-    dimensionFilter.orGroup!.expressions.splice(index, 1)
-    if (dimensionFilter.orGroup?.expressions.length === 0) {
+    dimensionFilter[operatorType]!.expressions.splice(index, 1)
+    if (dimensionFilter[operatorType]?.expressions.length === 0) {
       setDimensionFilter({})
       onChange({ ...query, dimensionFilter: {} })
     } else {
@@ -68,7 +72,7 @@ export const DimensionFilter = ({ props }: { props: Props }) => {
   }
   const filedValueChange = (value: string, index: number) => {
 
-    let data = [...dimensionFilter.orGroup!.expressions];
+    let data = [...dimensionFilter[operatorType]!.expressions];
     let targetData = data[index].filter
     const { query, onChange } = props;
     switch (targetData?.filterType) {
@@ -86,13 +90,13 @@ export const DimensionFilter = ({ props }: { props: Props }) => {
         }
         break;
     }
-    dimensionFilter.orGroup!.expressions = data
+    dimensionFilter[operatorType]!.expressions = data
     onChange({
       ...query, dimensionFilter
     })
   }
   const fieldNameChange = (value: SelectableValue<string>, action: ActionMeta, index: number) => {
-    let data = [...dimensionFilter.orGroup!.expressions];
+    let data = [...dimensionFilter[operatorType]!.expressions];
     let targetData = data[index].filter!
     const { query, onChange } = props;
     if (value.value !== undefined) {
@@ -132,7 +136,7 @@ export const DimensionFilter = ({ props }: { props: Props }) => {
       }
     }
     data[index].filter! = targetData
-    dimensionFilter.orGroup!.expressions = data
+    dimensionFilter[operatorType]!.expressions = data
     onChange({
       ...query, dimensionFilter
     })
@@ -148,14 +152,23 @@ export const DimensionFilter = ({ props }: { props: Props }) => {
   //   onChange({...query, metricFilter: data[index]})
   // }
 
+  const operatorOnChange = (newOperator: OperatorType) => {
+      const { query, onChange } = props;
+      dimensionFilter[newOperator] = dimensionFilter[operatorType]
+      dimensionFilter[operatorType] = undefined;
+      onChange({
+        ...query, dimensionFilter
+      });
+      setOperatorType(newOperator);
+  }
+
 
   return (
     <>
       <div className="gf-form">
-        <VerticalGroup >
-          {dimensionFilter.orGroup?.expressions.map(({ filter }, index) => {
+        <VerticalGroup>{dimensionFilter[operatorType]?.expressions.map(({filter}, index) => {
             return (
-              <>
+              <div key={`expression-${index}`} style={{ display: 'flex', alignItems: 'center', flexDirection: 'column'}}>
                 <HorizontalGroup>
                   <Field label="dimension">
                     <Select
@@ -225,12 +238,16 @@ export const DimensionFilter = ({ props }: { props: Props }) => {
 
                   {/* </Field> */}
                 </HorizontalGroup>
-
-              </>
+                {(index + 1) !== dimensionFilter[operatorType]?.expressions.length && (
+                  <RadioButtonGroup options={[
+                    { label: 'AND', value: 'andGroup' },
+                    { label: 'OR', value: 'orGroup' },
+                  ]} value={operatorType} onChange={operatorOnChange} aria-label='query-mode' />)}
+              </div>
             )
           })}
           {
-            (Object.keys(dimensionFilter).length === 0 || dimensionFilter.orGroup?.expressions.length === 0) && <Button variant='secondary' icon='plus' onClick={addFields} ></Button>
+            (Object.keys(dimensionFilter).length === 0 || dimensionFilter[operatorType]?.expressions.length === 0) && <Button variant='secondary' icon='plus' onClick={addFields}></Button>
           }
         </VerticalGroup>
         {/* <Field label="filter type" description="filter type"> */}

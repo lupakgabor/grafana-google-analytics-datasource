@@ -318,7 +318,7 @@ export class QueryEditorGA4 extends PureComponent<Props> {
               className="query-keyword"
               tooltip={
                 <>
-                  Currently, only <code>or groups</code> are supported.
+                  Currently, only <code>and groups</code> and <code>or groups</code> are supported.
                 </>
               }
             >
